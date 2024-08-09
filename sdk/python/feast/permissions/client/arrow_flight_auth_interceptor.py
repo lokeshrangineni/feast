@@ -31,7 +31,7 @@ class FlightAuthInterceptorFactory(fl.ClientMiddlewareFactory):
         return FlightBearerTokenInterceptor(self.auth_config)
 
 
-def build_arrow_flight_client(host: str, port: int, auth_config: AuthConfig):
+def build_arrow_flight_client(host: str, port, auth_config: AuthConfig):
     if auth_config.type != AuthType.NONE.value:
         middleware_factory = FlightAuthInterceptorFactory(auth_config)
         return fl.FlightClient(f"grpc://{host}:{port}", middleware=[middleware_factory])

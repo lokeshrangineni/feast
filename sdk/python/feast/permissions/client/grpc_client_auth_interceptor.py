@@ -42,9 +42,8 @@ class GrpcClientAuthHeaderInterceptor(
         return continuation(client_call_details, request_iterator)
 
     def _append_auth_header_metadata(self, client_call_details):
-        logger.info(
-            f"Intercepted the grpc api method {client_call_details.method} call to inject Authorization header "
-            f"token. "
+        logger.debug(
+            "Intercepted the grpc api method call to inject Authorization header "
         )
         metadata = client_call_details.metadata or []
         auth_client_manager = get_auth_client_manager(self._auth_type)
