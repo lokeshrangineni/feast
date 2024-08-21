@@ -26,6 +26,7 @@ from unittest import mock
 import pandas as pd
 import pytest
 from _pytest.nodes import Item
+from testcontainers.keycloak import KeycloakContainer
 
 from feast.data_source import DataSource
 from feast.feature_store import FeatureStore  # noqa: E402
@@ -56,7 +57,10 @@ from tests.integration.feature_repos.universal.entities import (  # noqa: E402
     driver,
     location,
 )
-from tests.utils.auth_permissions_util import default_store
+from tests.utils.auth_permissions_util import (
+    default_store,
+    setup_permissions_on_keycloak,
+)
 from tests.utils.http_server import check_port_open, free_port  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -181,9 +185,12 @@ def start_test_local_server(repo_path: str, port: int):
 
 
 @pytest.fixture
-def environment(request, worker_id):
+def environment(request, worker_id, keycloak_server):
     e = construct_test_environment(
-        request.param, worker_id=worker_id, fixture_request=request
+        request.param,
+        worker_id=worker_id,
+        fixture_request=request,
+        keycloak_server=keycloak_server,
     )
 
     e.setup()
@@ -467,7 +474,7 @@ def is_integration_test(all_markers_from_module):
         """),
     ],
 )
-def auth_config(request, is_integration_test):
+def auth_config(request, is_integration_test, keycloak_server):
     auth_configuration = request.param
 
     if is_integration_test:
@@ -476,7 +483,17 @@ def auth_config(request, is_integration_test):
                 "skipping integration tests for kubernetes platform, unit tests are covering this functionality."
             )
         elif "oidc" in auth_configuration:
-            keycloak_url = request.getfixturevalue("start_keycloak_server")
-            return auth_configuration.replace("KEYCLOAK_URL_PLACE_HOLDER", keycloak_url)
+            return auth_configuration.replace(
+                "KEYCLOAK_URL_PLACE_HOLDER", keycloak_server
+            )
 
     return auth_configuration
+
+
+@pytest.mark.xdist_group(name="keycloak")
+@pytest.fixture(name="keycloak_server", scope="session")
+def start_keycloak_server():
+    logger.info("Starting keycloak instance")
+    with KeycloakContainer("quay.io/keycloak/keycloak:24.0.1") as keycloak_container:
+        setup_permissions_on_keycloak(keycloak_container.get_client())
+        yield keycloak_container.get_url()

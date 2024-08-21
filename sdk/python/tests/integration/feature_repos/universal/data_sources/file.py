@@ -434,9 +434,8 @@ class RemoteOfflineStoreDataSourceCreator(FileDataSourceCreator):
 class RemoteOfflineOidcAuthStoreDataSourceCreator(FileDataSourceCreator):
     def __init__(self, project_name: str, *args, **kwargs):
         super().__init__(project_name)
-        if "fixture_request" in kwargs:
-            request = kwargs["fixture_request"]
-            self.keycloak_url = request.getfixturevalue("start_keycloak_server")
+        if "keycloak_server" in kwargs:
+            self.keycloak_url = kwargs["keycloak_server"]
         else:
             raise RuntimeError(
                 "fixture_request object is not passed to inject keycloak fixture dynamically."

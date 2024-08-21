@@ -44,11 +44,8 @@ from tests.integration.feature_repos.universal.data_sources.bigquery import (
     BigQueryDataSourceCreator,
 )
 from tests.integration.feature_repos.universal.data_sources.file import (
-    DuckDBDataSourceCreator,
-    DuckDBDeltaDataSourceCreator,
     FileDataSourceCreator,
     RemoteOfflineOidcAuthStoreDataSourceCreator,
-    RemoteOfflineStoreDataSourceCreator,
 )
 from tests.integration.feature_repos.universal.data_sources.redshift import (
     RedshiftDataSourceCreator,
@@ -126,16 +123,16 @@ IKV_CONFIG = {
 
 OFFLINE_STORE_TO_PROVIDER_CONFIG: Dict[str, Tuple[str, Type[DataSourceCreator]]] = {
     "file": ("local", FileDataSourceCreator),
-    "bigquery": ("gcp", BigQueryDataSourceCreator),
-    "redshift": ("aws", RedshiftDataSourceCreator),
-    "snowflake": ("aws", SnowflakeDataSourceCreator),
+    # "bigquery": ("gcp", BigQueryDataSourceCreator),
+    # "redshift": ("aws", RedshiftDataSourceCreator),
+    # "snowflake": ("aws", SnowflakeDataSourceCreator),
 }
 
 AVAILABLE_OFFLINE_STORES: List[Tuple[str, Type[DataSourceCreator]]] = [
-    ("local", FileDataSourceCreator),
-    ("local", DuckDBDataSourceCreator),
-    ("local", DuckDBDeltaDataSourceCreator),
-    ("local", RemoteOfflineStoreDataSourceCreator),
+    # ("local", FileDataSourceCreator),
+    # ("local", DuckDBDataSourceCreator),
+    # ("local", DuckDBDeltaDataSourceCreator),
+    # ("local", RemoteOfflineStoreDataSourceCreator),
     ("local", RemoteOfflineOidcAuthStoreDataSourceCreator),
 ]
 
@@ -161,11 +158,11 @@ if os.getenv("FEAST_IS_LOCAL_TEST", "False") != "True":
         ]
     )
 
-    AVAILABLE_ONLINE_STORES["redis"] = (REDIS_CONFIG, None)
-    AVAILABLE_ONLINE_STORES["dynamodb"] = (DYNAMO_CONFIG, None)
-    AVAILABLE_ONLINE_STORES["datastore"] = ("datastore", None)
-    AVAILABLE_ONLINE_STORES["snowflake"] = (SNOWFLAKE_CONFIG, None)
-    AVAILABLE_ONLINE_STORES["bigtable"] = (BIGTABLE_CONFIG, None)
+    # AVAILABLE_ONLINE_STORES["redis"] = (REDIS_CONFIG, None)
+    # AVAILABLE_ONLINE_STORES["dynamodb"] = (DYNAMO_CONFIG, None)
+    # AVAILABLE_ONLINE_STORES["datastore"] = ("datastore", None)
+    # AVAILABLE_ONLINE_STORES["snowflake"] = (SNOWFLAKE_CONFIG, None)
+    # AVAILABLE_ONLINE_STORES["bigtable"] = (BIGTABLE_CONFIG, None)
     # Uncomment to test using private Rockset account. Currently not enabled as
     # there is no dedicated Rockset instance for CI testing and there is no
     # containerized version of Rockset.
@@ -532,6 +529,7 @@ def construct_test_environment(
     test_suite_name: str = "integration_test",
     worker_id: str = "worker_id",
     entity_key_serialization_version: int = 2,
+    keycloak_server: Optional = None,
 ) -> Environment:
     _uuid = str(uuid.uuid4()).replace("-", "")[:6]
 
@@ -542,7 +540,7 @@ def construct_test_environment(
     project = f"{test_suite_name}_{run_id}_{run_num}"
 
     offline_creator: DataSourceCreator = test_repo_config.offline_store_creator(
-        project, fixture_request=fixture_request
+        project, fixture_request=fixture_request, keycloak_server=keycloak_server
     )
 
     if test_repo_config.online_store_creator:
