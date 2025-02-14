@@ -1,6 +1,7 @@
 # Table of contents
 
 * [Introduction](README.md)
+* [Blog](blog/README.md)
 * [Community & getting help](community.md)
 * [Roadmap](roadmap.md)
 * [Changelog](https://github.com/feast-dev/feast/blob/master/CHANGELOG.md)
@@ -116,6 +117,7 @@
   * [Hazelcast](reference/online-stores/hazelcast.md)
   * [ScyllaDB](reference/online-stores/scylladb.md)
   * [SingleStore](reference/online-stores/singlestore.md)
+  * [Milvus](reference/online-stores/milvus.md)
 * [Registries](reference/registries/README.md)
   * [Local](reference/registries/local.md)
   * [S3](reference/registries/s3.md)

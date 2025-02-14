@@ -71,15 +71,24 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 						FeastProject: feastProject,
 						Services: &feastdevv1alpha1.FeatureStoreServices{
 							OnlineStore: &feastdevv1alpha1.OnlineStore{
-								TLS: tlsConfigs,
+								Server: &feastdevv1alpha1.ServerConfigs{
+									TLS: tlsConfigs,
+								},
 							},
 							OfflineStore: &feastdevv1alpha1.OfflineStore{
-								TLS: tlsConfigs,
+								Server: &feastdevv1alpha1.ServerConfigs{
+									TLS: tlsConfigs,
+								},
 							},
 							Registry: &feastdevv1alpha1.Registry{
 								Local: &feastdevv1alpha1.LocalRegistryConfig{
-									TLS: tlsConfigs,
+									Server: &feastdevv1alpha1.ServerConfigs{
+										TLS: tlsConfigs,
+									},
 								},
+							},
+							UI: &feastdevv1alpha1.ServerConfigs{
+								TLS: tlsConfigs,
 							},
 						},
 					},
@@ -136,10 +145,10 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 			Expect(resource.Status.Conditions).NotTo(BeEmpty())
 			cond := apimeta.FindStatusCondition(resource.Status.Conditions, feastdevv1alpha1.ReadyType)
 			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(feastdevv1alpha1.ReadyReason))
+			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
+			Expect(cond.Reason).To(Equal(feastdevv1alpha1.DeploymentNotAvailableReason))
 			Expect(cond.Type).To(Equal(feastdevv1alpha1.ReadyType))
-			Expect(cond.Message).To(Equal(feastdevv1alpha1.ReadyMessage))
+			Expect(cond.Message).To(Equal(feastdevv1alpha1.DeploymentNotAvailableMessage))
 
 			cond = apimeta.FindStatusCondition(resource.Status.Conditions, feastdevv1alpha1.RegistryReadyType)
 			Expect(cond).ToNot(BeNil())
@@ -169,7 +178,7 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 			Expect(cond.Type).To(Equal(feastdevv1alpha1.OnlineStoreReadyType))
 			Expect(cond.Message).To(Equal(feastdevv1alpha1.OnlineStoreReadyMessage))
 
-			Expect(resource.Status.Phase).To(Equal(feastdevv1alpha1.ReadyPhase))
+			Expect(resource.Status.Phase).To(Equal(feastdevv1alpha1.PendingPhase))
 
 			// check deployment
 			deploy := &appsv1.Deployment{}
@@ -181,8 +190,7 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deploy.Spec.Replicas).To(Equal(&services.DefaultReplicas))
 			Expect(controllerutil.HasControllerReference(deploy)).To(BeTrue())
-			Expect(deploy.Spec.Template.Spec.Containers).To(HaveLen(3))
-
+			Expect(deploy.Spec.Template.Spec.Containers).To(HaveLen(4))
 			svc := &corev1.Service{}
 			err = k8sClient.Get(ctx, types.NamespacedName{
 				Name:      feast.GetFeastServiceName(services.RegistryFeastType),
@@ -230,7 +238,7 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 			svcList := corev1.ServiceList{}
 			err = k8sClient.List(ctx, &svcList, listOpts)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(svcList.Items).To(HaveLen(3))
+			Expect(svcList.Items).To(HaveLen(4))
 
 			cmList := corev1.ConfigMapList{}
 			err = k8sClient.List(ctx, &cmList, listOpts)
@@ -245,8 +253,8 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 				Namespace: objMeta.Namespace,
 			}, deploy)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(deploy.Spec.Template.Spec.Containers).To(HaveLen(3))
-			registryContainer := services.GetRegistryContainer(deploy.Spec.Template.Spec.Containers)
+			Expect(deploy.Spec.Template.Spec.Containers).To(HaveLen(4))
+			registryContainer := services.GetRegistryContainer(*deploy)
 			Expect(registryContainer.Env).To(HaveLen(1))
 			env := getFeatureStoreYamlEnvVar(registryContainer.Env)
 			Expect(env).NotTo(BeNil())
@@ -267,7 +275,7 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 			Expect(repoConfig).To(Equal(&testConfig))
 
 			// check offline config
-			offlineContainer := services.GetOfflineContainer(deploy.Spec.Template.Spec.Containers)
+			offlineContainer := services.GetOfflineContainer(*deploy)
 			Expect(offlineContainer.Env).To(HaveLen(1))
 			env = getFeatureStoreYamlEnvVar(offlineContainer.Env)
 			Expect(env).NotTo(BeNil())
@@ -284,7 +292,7 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 			Expect(repoConfigOffline).To(Equal(&testConfig))
 
 			// check online config
-			onlineContainer := services.GetOnlineContainer(deploy.Spec.Template.Spec.Containers)
+			onlineContainer := services.GetOnlineContainer(*deploy)
 			Expect(onlineContainer.Env).To(HaveLen(1))
 			env = getFeatureStoreYamlEnvVar(onlineContainer.Env)
 			Expect(env).NotTo(BeNil())
@@ -348,12 +356,16 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 				FeastProject: feastProject,
 				Services: &feastdevv1alpha1.FeatureStoreServices{
 					OnlineStore: &feastdevv1alpha1.OnlineStore{
-						TLS: &feastdevv1alpha1.TlsConfigs{
-							Disable: &disable,
+						Server: &feastdevv1alpha1.ServerConfigs{
+							TLS: &feastdevv1alpha1.TlsConfigs{
+								Disable: &disable,
+							},
 						},
 					},
 					OfflineStore: &feastdevv1alpha1.OfflineStore{
-						TLS: tlsConfigs,
+						Server: &feastdevv1alpha1.ServerConfigs{
+							TLS: tlsConfigs,
+						},
 					},
 					Registry: &feastdevv1alpha1.Registry{
 						Remote: &feastdevv1alpha1.RemoteRegistryConfig{
@@ -388,7 +400,7 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 			Expect(deploy.Spec.Template.Spec.Containers).To(HaveLen(2))
 
 			// check offline config
-			offlineContainer = services.GetOfflineContainer(deploy.Spec.Template.Spec.Containers)
+			offlineContainer = services.GetOfflineContainer(*deploy)
 			env = getFeatureStoreYamlEnvVar(offlineContainer.Env)
 			Expect(env).NotTo(BeNil())
 
@@ -410,7 +422,7 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 			Expect(repoConfigOffline).To(Equal(&testConfig))
 
 			// check online config
-			onlineContainer = services.GetOnlineContainer(deploy.Spec.Template.Spec.Containers)
+			onlineContainer = services.GetOnlineContainer(*deploy)
 			env = getFeatureStoreYamlEnvVar(onlineContainer.Env)
 			Expect(env).NotTo(BeNil())
 

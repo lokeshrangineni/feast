@@ -61,14 +61,23 @@ var _ = Describe("FeatureStore Controller - Feast service LogLevel", func() {
 						Services: &feastdevv1alpha1.FeatureStoreServices{
 							Registry: &feastdevv1alpha1.Registry{
 								Local: &feastdevv1alpha1.LocalRegistryConfig{
-									LogLevel: "error",
+									Server: &feastdevv1alpha1.ServerConfigs{
+										LogLevel: strPtr("error"),
+									},
 								},
 							},
 							OnlineStore: &feastdevv1alpha1.OnlineStore{
-								LogLevel: "debug",
+								Server: &feastdevv1alpha1.ServerConfigs{
+									LogLevel: strPtr("debug"),
+								},
 							},
 							OfflineStore: &feastdevv1alpha1.OfflineStore{
-								LogLevel: "info",
+								Server: &feastdevv1alpha1.ServerConfigs{
+									LogLevel: strPtr("info"),
+								},
+							},
+							UI: &feastdevv1alpha1.ServerConfigs{
+								LogLevel: strPtr("info"),
 							},
 						},
 					},
@@ -120,10 +129,10 @@ var _ = Describe("FeatureStore Controller - Feast service LogLevel", func() {
 			Expect(resource.Status.Conditions).NotTo(BeEmpty())
 			cond := apimeta.FindStatusCondition(resource.Status.Conditions, feastdevv1alpha1.ReadyType)
 			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(feastdevv1alpha1.ReadyReason))
+			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
+			Expect(cond.Reason).To(Equal(feastdevv1alpha1.DeploymentNotAvailableReason))
 			Expect(cond.Type).To(Equal(feastdevv1alpha1.ReadyType))
-			Expect(cond.Message).To(Equal(feastdevv1alpha1.ReadyMessage))
+			Expect(cond.Message).To(Equal(feastdevv1alpha1.DeploymentNotAvailableMessage))
 
 			cond = apimeta.FindStatusCondition(resource.Status.Conditions, feastdevv1alpha1.RegistryReadyType)
 			Expect(cond).ToNot(BeNil())
@@ -152,7 +161,7 @@ var _ = Describe("FeatureStore Controller - Feast service LogLevel", func() {
 			Expect(cond.Reason).To(Equal(feastdevv1alpha1.ReadyReason))
 			Expect(cond.Type).To(Equal(feastdevv1alpha1.OnlineStoreReadyType))
 			Expect(cond.Message).To(Equal(feastdevv1alpha1.OnlineStoreReadyMessage))
-			Expect(resource.Status.Phase).To(Equal(feastdevv1alpha1.ReadyPhase))
+			Expect(resource.Status.Phase).To(Equal(feastdevv1alpha1.PendingPhase))
 
 			// check deployment
 			deploy := &appsv1.Deployment{}
@@ -164,16 +173,16 @@ var _ = Describe("FeatureStore Controller - Feast service LogLevel", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deploy.Spec.Replicas).To(Equal(&services.DefaultReplicas))
 			Expect(controllerutil.HasControllerReference(deploy)).To(BeTrue())
-			Expect(deploy.Spec.Template.Spec.Containers).To(HaveLen(3))
-			command := services.GetRegistryContainer(deploy.Spec.Template.Spec.Containers).Command
+			Expect(deploy.Spec.Template.Spec.Containers).To(HaveLen(4))
+			command := services.GetRegistryContainer(*deploy).Command
 			Expect(command).To(ContainElement("--log-level"))
 			Expect(command).To(ContainElement("ERROR"))
 
-			command = services.GetOfflineContainer(deploy.Spec.Template.Spec.Containers).Command
+			command = services.GetOfflineContainer(*deploy).Command
 			Expect(command).To(ContainElement("--log-level"))
 			Expect(command).To(ContainElement("INFO"))
 
-			command = services.GetOnlineContainer(deploy.Spec.Template.Spec.Containers).Command
+			command = services.GetOnlineContainer(*deploy).Command
 			Expect(command).To(ContainElement("--log-level"))
 			Expect(command).To(ContainElement("DEBUG"))
 		})
@@ -186,10 +195,12 @@ var _ = Describe("FeatureStore Controller - Feast service LogLevel", func() {
 
 			resource.Spec.Services = &feastdevv1alpha1.FeatureStoreServices{
 				Registry: &feastdevv1alpha1.Registry{
-					Local: &feastdevv1alpha1.LocalRegistryConfig{},
+					Local: &feastdevv1alpha1.LocalRegistryConfig{
+						Server: &feastdevv1alpha1.ServerConfigs{},
+					},
 				},
-				OnlineStore:  &feastdevv1alpha1.OnlineStore{},
 				OfflineStore: &feastdevv1alpha1.OfflineStore{},
+				UI:           &feastdevv1alpha1.ServerConfigs{},
 			}
 			Expect(k8sClient.Update(ctx, resource)).To(Succeed())
 
@@ -221,15 +232,19 @@ var _ = Describe("FeatureStore Controller - Feast service LogLevel", func() {
 			}, deploy)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deploy.Spec.Template.Spec.Containers).To(HaveLen(3))
-			command := services.GetRegistryContainer(deploy.Spec.Template.Spec.Containers).Command
+			command := services.GetRegistryContainer(*deploy).Command
 			Expect(command).NotTo(ContainElement("--log-level"))
 
-			command = services.GetOfflineContainer(deploy.Spec.Template.Spec.Containers).Command
+			command = services.GetOnlineContainer(*deploy).Command
 			Expect(command).NotTo(ContainElement("--log-level"))
 
-			command = services.GetOnlineContainer(deploy.Spec.Template.Spec.Containers).Command
+			command = services.GetUIContainer(*deploy).Command
 			Expect(command).NotTo(ContainElement("--log-level"))
 		})
 
 	})
 })
+
+func strPtr(str string) *string {
+	return &str
+}
